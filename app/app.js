@@ -5,7 +5,7 @@ const app = express();
 const WebSocketServer = require('ws').Server;
 const config = require('./config/index');
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 const routesHttpApiUsers = require('./routes/http/api/users');
 

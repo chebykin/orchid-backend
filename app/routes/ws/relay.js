@@ -44,7 +44,10 @@ module.exports = (config) => {
         }
       });
 
-      presenter.pipeline.release();
+      if ('pipeline' in presenter && presenter.pipeline !== null) {
+        presenter.pipeline.release();
+      }
+
       presenter = null;
       viewers = [];
     } else if (viewers[sessionId]) {
