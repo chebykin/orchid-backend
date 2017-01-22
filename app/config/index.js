@@ -1,5 +1,5 @@
 const config = {
-  ws_uri: 'wss://localhost:8888',
+  ws_uri: 'ws://localhost:8888/kurento',
 };
 
 module.exports = config;

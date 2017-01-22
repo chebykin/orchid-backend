@@ -1,9 +1,8 @@
 const kurento = require('kurento-client');
 
 module.exports = (config) => {
-  // TODO pass config from app.js
-  let cachedKurentoClient;
   let idCounter = 0;
+  let cachedKurentoClient = null;
   let presenter = null;
   let viewers = [];
   const candidatesQueue = [];
@@ -261,9 +260,11 @@ module.exports = (config) => {
       });
 
       ws.on('message', (rawMessage) => {
-        console.log(`WS Relay: websocket connection MESSAGE: ${rawMessage}`);
-
         const msg = JSON.parse(rawMessage);
+
+        if (msg.action !== 'onIceCandidate') {
+          console.log(`WS Relay: websocket connection MESSAGE: ${rawMessage}`);
+        }
 
         switch (msg.action) {
           case 'initPresenter':
