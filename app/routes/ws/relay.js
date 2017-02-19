@@ -1,4 +1,6 @@
 const kurento = require('kurento-client');
+kurento.register('kurento-module-thatoverlay');
+
 
 module.exports = (config) => {
   let idCounter = 0;
@@ -120,6 +122,9 @@ module.exports = (config) => {
         }
 
         presenter.pipeline = pipeline;
+        // createMediaElements(pipeline, ws, function (error, webRtcEndpoint, filter) {
+        //
+        // });
         return pipeline.create('WebRtcEndpoint', (endpointError, webRtcEndpoint) => {
           if (endpointError) {
             stop(sessionId);
@@ -131,45 +136,73 @@ module.exports = (config) => {
             return callback(noPresenterMessage);
           }
 
-          presenter.webRtcEndpoint = webRtcEndpoint;
-
-          if (candidatesQueue[sessionId]) {
-            while (candidatesQueue[sessionId].length) {
-              const candidate = candidatesQueue[sessionId].shift();
-              webRtcEndpoint.addIceCandidate(candidate);
-            }
-          }
-
-          webRtcEndpoint.on('OnIceCandidate', (event) => {
-            const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
-            ws.send(JSON.stringify({
-              action: 'iceCandidate',
-              candidate,
-            }));
-          });
-
-          webRtcEndpoint.processOffer(sdpOffer, (offerError, sdpAnswer) => {
-            if (offerError) {
-              stop(sessionId);
-              return callback(offerError);
-            }
-
-            if (presenter === null) {
-              stop(sessionId);
-              return callback(noPresenterMessage);
-            }
-
-            return callback(null, sdpAnswer);
-          });
-
-          return webRtcEndpoint.gatherCandidates((error) => {
+          pipeline.create('thatoverlay.ThatOverlay', {}, function(error, filter) {
             if (error) {
-              stop(sessionId);
               return callback(error);
             }
 
-            return null;
+            filter.setup(15, 15, "USERNAME", "Arial 16", 1, 1, 1, 1.0, "255.255.255.255" + "/n" + "12JAN2016 16:23:11Z", "Arial 16", 1, 1, 1, 0.5, 45, function(error) {
+              if (error) {
+                console.log(error);
+                //return callback(error);
+              }
+              webRtcEndpoint.connect(filter, (connectThatOverlayEndpointError) => {
+                if (connectThatOverlayEndpointError) {
+                  stop(sessionId);
+                  return callback(connectThatOverlayEndpointError);
+                }
+
+                filter.connect(webRtcEndpoint, (connectThatOverlayFilterError) => {
+                  if (connectThatOverlayFilterError) {
+                    stop(sessionId);
+                    return callback(connectThatOverlayFilterError);
+                  }
+
+                  presenter.webRtcEndpoint = webRtcEndpoint;
+
+                  if (candidatesQueue[sessionId]) {
+                    while (candidatesQueue[sessionId].length) {
+                      const candidate = candidatesQueue[sessionId].shift();
+                      webRtcEndpoint.addIceCandidate(candidate);
+                    }
+                  }
+
+                  webRtcEndpoint.on('OnIceCandidate', (event) => {
+                    const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+                    ws.send(JSON.stringify({
+                      action: 'iceCandidate',
+                      candidate,
+                    }));
+                  });
+
+                  webRtcEndpoint.processOffer(sdpOffer, (offerError, sdpAnswer) => {
+                    if (offerError) {
+                      stop(sessionId);
+                      return callback(offerError);
+                    }
+
+                    if (presenter === null) {
+                      stop(sessionId);
+                      return callback(noPresenterMessage);
+                    }
+
+                    return callback(null, sdpAnswer);
+                  });
+
+                  return webRtcEndpoint.gatherCandidates((error) => {
+                    if (error) {
+                      stop(sessionId);
+                      return callback(error);
+                    }
+
+                    return null;
+                  });
+                });
+              });
+
+            });
           });
+
         });
       });
     });
@@ -206,43 +239,98 @@ module.exports = (config) => {
         }
       }
 
-      webRtcEndpoint.on('OnIceCandidate', (event) => {
-        const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
-        ws.send(JSON.stringify({
-          action: 'iceCandidate',
-          candidate,
-        }));
-      });
-
-      return webRtcEndpoint.processOffer(sdpOffer, (error, sdpAnswer) => {
-        if (error) {
+      // setup overlay filter
+      presenter.pipeline.create('thatoverlay.ThatOverlay', (createThatOverlayError, filter) => {
+        if (createThatOverlayError) {
           stop(sessionId);
-          return callback(error);
-        }
-        if (presenter === null) {
-          stop(sessionId);
-          return callback(noPresenterMessage);
+          return callback(createThatOverlayError);
         }
 
-        return presenter.webRtcEndpoint.connect(webRtcEndpoint, (connectEndpointError) => {
-          if (connectEndpointError) {
-            stop(sessionId);
-            return callback(connectEndpointError);
-          }
-          if (presenter === null) {
-            stop(sessionId);
-            return callback(noPresenterMessage);
-          }
-
-          callback(null, sdpAnswer);
-          return webRtcEndpoint.gatherCandidates((gatherError) => {
-            if (gatherError) {
+        filter.setup(30, 30, "USERNAME", "Arial 50", 1, 1, 1, 1.0, "255.255.255.255" + "/n" + "12JAN2016 16:23:11Z",
+          "Arial 50", 1, 1, 1, 0.5, 45, (setupThatOverlayError) => {
+            if (setupThatOverlayError) {
               stop(sessionId);
-              return callback(gatherError);
+              return callback(setupThatOverlayError);
             }
 
-            return null;
-          });
+            webRtcEndpoint.connect(filter, (connectThatOverlayEndpointError) => {
+              if (connectThatOverlayEndpointError) {
+                stop(sessionId);
+                return callback(connectThatOverlayEndpointError);
+              }
+
+              filter.connect(webRtcEndpoint, (connectThatOverlayFilterError) => {
+                if (connectThatOverlayFilterError) {
+                  stop(sessionId);
+                  return callback(connectThatOverlayFilterError);
+                }
+
+                // / setup overlay filter
+                webRtcEndpoint.on('OnIceCandidate', (event) => {
+                  const candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+                  ws.send(JSON.stringify({
+                    action: 'iceCandidate',
+                    candidate,
+                  }));
+                });
+
+                return webRtcEndpoint.processOffer(sdpOffer, (error, sdpAnswer) => {
+                  if (error) {
+                    stop(sessionId);
+                    return callback(error);
+                  }
+                  if (presenter === null) {
+                    stop(sessionId);
+                    return callback(noPresenterMessage);
+                  }
+
+                  return presenter.webRtcEndpoint.connect(webRtcEndpoint, (connectEndpointError) => {
+                    if (connectEndpointError) {
+                      stop(sessionId);
+                      return callback(connectEndpointError);
+                    }
+                    if (presenter === null) {
+                      stop(sessionId);
+                      return callback(noPresenterMessage);
+                    }
+
+                    callback(null, sdpAnswer);
+                    return webRtcEndpoint.gatherCandidates((gatherError) => {
+                      if (gatherError) {
+                        stop(sessionId);
+                        return callback(gatherError);
+                      }
+
+                      return null;
+                    });
+                  });
+                });
+              })
+            })
+        });
+      });
+
+
+    });
+  };
+
+  const createMediaElements = (pipeline, ws, callback) => {
+    pipeline.create('WebRtcEndpoint', function(error, webRtcEndpoint) {
+      if (error) {
+        return callback(error);
+      }
+
+      pipeline.create('thatoverlay.ThatOverlay', {}, function(error, filter) {
+        if (error) {
+          return callback(error);
+        }
+
+        filter.setup(15, 15, "USERNAME", "Arial 16", 1, 1, 1, 1.0, "255.255.255.255" + "/n" + "12JAN2016 16:23:11Z", "Arial 16", 1, 1, 1, 0.5, 45, function(error) {
+          if (error) {
+            console.log(error);
+            //return callback(error);
+          }
+          return callback(null, webRtcEndpoint, filter);
         });
       });
     });
